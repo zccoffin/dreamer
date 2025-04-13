@@ -206,7 +206,7 @@ class POD:
                     async with session.post(url=url, headers=headers, data=data) as response:
                         if response.status == 400:
                             return self.log(
-                                f"{Fore.CYAN+Style.BRIGHT}Spin    :{Style.RESET_ALL}"
+                                f"{Fore.CYAN+Style.BRIGHT}Spin      :{Style.RESET_ALL}"
                                 f"{Fore.YELLOW+Style.BRIGHT} No Available {Style.RESET_ALL}"
                             )
                         response.raise_for_status()
@@ -216,23 +216,75 @@ class POD:
                     await asyncio.sleep(5)
                     continue
                 return None
+            
+    async def task_lists(self, cookie: str, user_id: str, proxy=None, retries=5):
+        url = f"https://server.partofdream.io/task/getTasks?id={user_id}"
+        headers = {
+            **self.headers,
+            "Cookie": cookie
+        }
+        for attempt in range(retries):
+            connector = ProxyConnector.from_url(proxy) if proxy else None
+            try:
+                async with ClientSession(connector=connector, timeout=ClientTimeout(total=120)) as session:
+                    async with session.get(url=url, headers=headers) as response:
+                        response.raise_for_status()
+                        result = await response.json()
+                        return result["tasks"]
+            except (Exception, ClientResponseError) as e:
+                if attempt < retries - 1:
+                    await asyncio.sleep(5)
+                    continue
+                return None
+            
+    async def perform_tasks(self, cookie: str, user_id: str, task_id: str, task_title: str, proxy=None, retries=5):
+        url = "https://server.partofdream.io/task/completeTask/Delay"
+        data = json.dumps({"userId":user_id, "taskId":task_id, "fromPage":"/quests"})
+        headers = {
+            **self.headers,
+            "Content-Length": str(len(data)),
+            "Content-Type": "application/json",
+            "Cookie": cookie
+        }
+        for attempt in range(retries):
+            connector = ProxyConnector.from_url(proxy) if proxy else None
+            try:
+                async with ClientSession(connector=connector, timeout=ClientTimeout(total=120)) as session:
+                    async with session.post(url=url, headers=headers, data=data) as response:
+                        if response.status == 500:
+                            return self.log(
+                                f"{Fore.CYAN+Style.BRIGHT}     > {Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT}{task_title}{Style.RESET_ALL}"
+                                f"{Fore.YELLOW+Style.BRIGHT} Already Completed {Style.RESET_ALL}"
+                            )
+                        response.raise_for_status()
+                        return await response.json()
+            except (Exception, ClientResponseError) as e:
+                if attempt < retries - 1:
+                    await asyncio.sleep(5)
+                    continue
+                return self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}     > {Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT}{task_title}{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Not Completed {Style.RESET_ALL}"
+                )
 
     async def process_accounts(self, cookie: str, use_proxy: bool):
         proxy = self.get_next_proxy_for_account(cookie) if use_proxy else None
         self.log(
-            f"{Fore.CYAN+Style.BRIGHT}Proxy   :{Style.RESET_ALL}"
+            f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
             f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
         )
 
         user = await self.user_session(cookie, proxy)
         if not user:
             return self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Status  :{Style.RESET_ALL}"
+                f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
                 f"{Fore.RED+Style.BRIGHT} GET Session Failed {Style.RESET_ALL}"
             )
         
         self.log(
-            f"{Fore.CYAN+Style.BRIGHT}Status  :{Style.RESET_ALL}"
+            f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
             f"{Fore.GREEN+Style.BRIGHT} GET Session Success {Style.RESET_ALL}"
         )
 
@@ -244,11 +296,11 @@ class POD:
         await self.verif_user(cookie, twitter_id, proxy)
 
         self.log(
-            f"{Fore.CYAN+Style.BRIGHT}Account :{Style.RESET_ALL}"
+            f"{Fore.CYAN+Style.BRIGHT}Account   :{Style.RESET_ALL}"
             f"{Fore.WHITE+Style.BRIGHT} {display_name} {Style.RESET_ALL}"
         )
         self.log(
-            f"{Fore.CYAN+Style.BRIGHT}Balance :{Style.RESET_ALL}"
+            f"{Fore.CYAN+Style.BRIGHT}Balance   :{Style.RESET_ALL}"
             f"{Fore.WHITE+Style.BRIGHT} {balance} points {Style.RESET_ALL}"
         )
 
@@ -258,7 +310,7 @@ class POD:
             if message == "You have successfully checked-in today! Keep it up!":
                 reward = check_in.get("user", {}).get("pointsForThisCheckIn", 0)
                 self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Check-In:{Style.RESET_ALL}"
+                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
                     f"{Fore.GREEN+Style.BRIGHT} Claimed {Style.RESET_ALL}"
                     f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                     f"{Fore.CYAN+Style.BRIGHT} Reward {Style.RESET_ALL}"
@@ -266,17 +318,17 @@ class POD:
                 )
             elif message == "You have already checked-in today. Try again tomorrow!":
                 self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Check-In:{Style.RESET_ALL}"
+                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
                     f"{Fore.YELLOW+Style.BRIGHT} Already Claimed {Style.RESET_ALL}"
                 )
             else:
                 self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Check-In:{Style.RESET_ALL}"
+                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
                     f"{Fore.YELLOW+Style.BRIGHT} Unknown Status {Style.RESET_ALL}"
                 )
         else:
             self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Check-In:{Style.RESET_ALL}"
+                f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
                 f"{Fore.RED+Style.BRIGHT} Not Claimed {Style.RESET_ALL}"
             )
 
@@ -284,12 +336,48 @@ class POD:
         if spin and spin.get("message") == "Spin completed successfully!":
             reward = spin.get("user", {}).get("prize", 0)
             self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Spin    :{Style.RESET_ALL}"
+                f"{Fore.CYAN+Style.BRIGHT}Spin      :{Style.RESET_ALL}"
                 f"{Fore.GREEN+Style.BRIGHT} Success {Style.RESET_ALL}"
                 f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                 f"{Fore.CYAN+Style.BRIGHT} Reward {Style.RESET_ALL}"
                 f"{Fore.WHITE+Style.BRIGHT} {reward} {Style.RESET_ALL}"
             )
+
+        tasks = await self.task_lists(cookie, user_id, proxy)
+        if tasks:
+            self.log(f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}")
+            for task in tasks:
+                if task:
+                    task_id = task["_id"]
+                    task_title = task["title"]
+                    task_reward = task["points"]
+                    task_action = task["action"]
+
+                    if task_action != "Delay":
+                        self.log(
+                            f"{Fore.CYAN+Style.BRIGHT}     > {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT}{task_title}{Style.RESET_ALL}"
+                            f"{Fore.YELLOW+Style.BRIGHT} Skipped {Style.RESET_ALL}"
+                        )
+                        continue
+
+                    claim = await self.perform_tasks(cookie, user_id, task_id, task_title, proxy)
+                    if claim and claim.get("message") == "Task completed successfully.":
+                        self.log(
+                            f"{Fore.CYAN+Style.BRIGHT}     > {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT}{task_title}{Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT} Is Completed {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT} Reward {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT}{task_reward} points{Style.RESET_ALL}"
+                        )
+
+        else:
+            self.log(
+                f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}"
+                f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
+            )
+                        
             
     async def main(self):
         try:

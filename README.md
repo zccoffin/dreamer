@@ -14,6 +14,7 @@ Part Of Dream BOT
   - Auto Run Without Proxy - Choose 3
   - Auto Claim Daily Check-In
   - Auto Perform Spin
+  - Auto Complete Available Quests
   - Multi Accounts
 
 ## Requiremnets
